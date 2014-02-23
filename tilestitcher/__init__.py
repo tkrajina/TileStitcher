@@ -72,8 +72,8 @@ class SlippyMapTilenames:
 
         for zoom in range(self.max_zoom, self.min_zoom, -1):
             # Find tile:
-            tile = self.deg2num(center[0], center[1], zoom, leave_float=True)
-            location_on_image = (self.tile_size * (tile.x - int(tile.x)), self.tile_size * (tile.y - int(tile.y)))
+            center_tile = self.deg2num(center[0], center[1], zoom, leave_float=True)
+            location_on_image = (self.tile_size * (center_tile.x - int(center_tile.x)), self.tile_size * (center_tile.y - int(center_tile.y)))
 
             # Check how many tiles left/right/bottop/up are needed:
             left   = location_on_image[0] - width / 2.
@@ -91,21 +91,33 @@ class SlippyMapTilenames:
             if top < 0:
                 top_tiles = 1 + int(abs(top) / 256.)
 
-            tile_1 = TileInfo(int(tile.x) - left_tiles,  int(tile.y) - top_tiles, zoom)
-            tile_2 = TileInfo(int(tile.x) + right_tiles, int(tile.y) + bottom_tiles, zoom)
+            tile_1 = TileInfo(int(center_tile.x) - left_tiles,  int(center_tile.y) - top_tiles, zoom)
+            tile_2 = TileInfo(int(center_tile.x) + right_tiles, int(center_tile.y) + bottom_tiles, zoom)
             assert tile_1.x <= tile_2.x
             assert tile_1.y <= tile_2.y
 
             if tile_2.x - tile_1.x + 1 <= self.max_tiles and tile_2.y - tile_1.y + 1 <= self.max_tiles:
                 # TODO: Check that image window bounds are within latitude/longitude bounds!
 
-                stitched = stitch_tiles(tile_1, tile_2, self.tile_size)
+                bound_tile_1 = self.deg2num(latitute_range[0], longitude_range[0], zoom, leave_float=True)
+                bound_1_on_image = (self.tile_size * (bound_tile_1.x - int(bound_tile_1.x)), self.tile_size * (bound_tile_1.y - int(bound_tile_1.y)))
+                bound_tile_2 = self.deg2num(latitute_range[1], longitude_range[1], zoom, leave_float=True)
+                bound_2_on_image = (self.tile_size * (bound_tile_2.x - int(bound_tile_2.x)), self.tile_size * (bound_tile_2.y - int(bound_tile_2.y)))
 
-                # Check if too many tiles:
-                # TODO
                 tmp_tile = self.deg2num(center[0], center[1], zoom, leave_float=True)
                 img_x = (tmp_tile.x - tile_1.x) * self.tile_size
                 img_y = (tmp_tile.y - tile_1.y) * self.tile_size
+
+                print 'bound_1_on_image=', bound_1_on_image, 'bound_2_on_image=', bound_2_on_image
+                print 'img_x=', img_x, 'width=', width, 'img_y=', img_y, 'height=', height
+                if     bound_1_on_image[0] <= img_x - width / 2. and bound_1_on_image[1] <= img_y - height / 2. \
+                   and bound_2_on_image[0] >= img_x + width / 2. and bound_2_on_image[1] >= img_y + height / 2.:
+                    print 'ok'
+                else:
+                    print 'nije ok'
+
+                stitched = stitch_tiles(tile_1, tile_2, self.tile_size)
+
                 draw = mod_imagedraw.Draw(stitched) 
 
                 """ DEBUG:
@@ -116,13 +128,13 @@ class SlippyMapTilenames:
                 draw.ellipse((img_x - width / 2. - 2, img_y + height / 2. - 2, img_x - width / 2. + 2, img_y + height / 2. + 2), fill=(128, 0, 128))
                 draw.ellipse((img_x + width / 2. - 2, img_y - height / 2. - 2, img_x + width / 2. + 2, img_y - height / 2. + 2), fill=(128, 0, 128))
 
-                stitched.show()
+                #stitched.show()
 
                 # Draw waypoints/lines:
 
                 # Crop:
 
-                raw_input()
+                #raw_input()
 
     def crop_tiles(stitched, latitute_range, longitude_range, width, height):
         pass
