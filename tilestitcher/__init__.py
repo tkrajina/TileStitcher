@@ -12,7 +12,18 @@ import ImageDraw as mod_imagedraw
 class TileInfo:
 
     def __init__(self, x, y, zoom):
-        n = 2 ** zoom
+        self.x = x
+        self.y = y
+        self.zoom = zoom
+
+    def __str__(self):
+        return 'Tile(x=%s, y=%s, zoom=%s)' % (self.x, self.y, self.zoom)
+
+    def get_tile_url(self):
+        x = self.x
+        y = self.y
+
+        n = 2 ** self.zoom
         if x < 0:
             x += n
         if y < 0:
@@ -22,18 +33,7 @@ class TileInfo:
         if y >= n:
             y -= n
 
-        self.x = x
-        self.y = y
-        self.zoom = zoom
-
-    def __str__(self):
-        return 'Tile(x=%s, y=%s, zoom=%s)' % (self.x, self.y, self.zoom)
-
-def get_tile_url(tile_info):
-    x = tile_info.x
-    y = tile_info.y
-    zoom = tile_info.zoom
-    return 'http://tile.openstreetmap.org/%s/%s/%s.png' % (zoom, int(x), int(y))
+        return 'http://tile.openstreetmap.org/%s/%s/%s.png' % (self.zoom, int(x), int(y))
 
 class SlippyMapTilenames:
     def __init__(self):
@@ -70,7 +70,7 @@ class SlippyMapTilenames:
 
         center = ((latitute_range[0] + latitute_range[1]) / 2., (longitude_range[0] + longitude_range[1]) / 2.)
 
-        for zoom in range(self.min_zoom, self.max_zoom):
+        for zoom in range(self.max_zoom, self.min_zoom, -1):
             # Find tile:
             tile = self.deg2num(center[0], center[1], zoom, leave_float=True)
             location_on_image = (self.tile_size * (tile.x - int(tile.x)), self.tile_size * (tile.y - int(tile.y)))
@@ -80,8 +80,6 @@ class SlippyMapTilenames:
             right  = location_on_image[0] + width / 2.
             top    = location_on_image[1] - height / 2.
             bottom = location_on_image[1] + height / 2.
-
-            print 'left=', left, 'right=', right, 'bottom=', bottom, 'top=', top
 
             left_tiles, right_tiles, top_tiles, bottom_tiles = 0, 0, 0, 0
             if left < 0:
@@ -93,39 +91,38 @@ class SlippyMapTilenames:
             if top < 0:
                 top_tiles = 1 + int(abs(top) / 256.)
 
-            print 'left_tiles=', left_tiles, 'top_tiles=', top_tiles, \
-                  'right_tiles=', right_tiles, 'bottom_tiles=', bottom_tiles
-
             tile_1 = TileInfo(int(tile.x) - left_tiles,  int(tile.y) - top_tiles, zoom)
             tile_2 = TileInfo(int(tile.x) + right_tiles, int(tile.y) + bottom_tiles, zoom)
             assert tile_1.x <= tile_2.x
             assert tile_1.y <= tile_2.y
 
-            print tile_1, tile_2
-            stitched = stitch_tiles(tile_1, tile_2, self.tile_size)
+            if tile_2.x - tile_1.x + 1 <= self.max_tiles and tile_2.y - tile_1.y + 1 <= self.max_tiles:
+                # TODO: Check that image window bounds are within latitude/longitude bounds!
 
-            # Check if too many tiles:
-            # TODO
-            tmp_tile = self.deg2num(center[0], center[1], zoom, leave_float=True)
-            img_x = (tmp_tile.x - tile_1.x) * self.tile_size
-            img_y = (tmp_tile.y - tile_1.y) * self.tile_size
-            draw = mod_imagedraw.Draw(stitched) 
+                stitched = stitch_tiles(tile_1, tile_2, self.tile_size)
 
-            """ DEBUG:
-            """
-            draw.ellipse((img_x - 2, img_y - 2, img_x + 2, img_y + 2), fill=(128, 0, 128))
-            draw.ellipse((img_x - width / 2. - 2, img_y - height / 2. - 2, img_x - width / 2. + 2, img_y - height / 2. + 2), fill=(128, 0, 128))
-            draw.ellipse((img_x + width / 2. - 2, img_y + height / 2. - 2, img_x + width / 2. + 2, img_y + height / 2. + 2), fill=(128, 0, 128))
-            draw.ellipse((img_x - width / 2. - 2, img_y + height / 2. - 2, img_x - width / 2. + 2, img_y + height / 2. + 2), fill=(128, 0, 128))
-            draw.ellipse((img_x + width / 2. - 2, img_y - height / 2. - 2, img_x + width / 2. + 2, img_y - height / 2. + 2), fill=(128, 0, 128))
+                # Check if too many tiles:
+                # TODO
+                tmp_tile = self.deg2num(center[0], center[1], zoom, leave_float=True)
+                img_x = (tmp_tile.x - tile_1.x) * self.tile_size
+                img_y = (tmp_tile.y - tile_1.y) * self.tile_size
+                draw = mod_imagedraw.Draw(stitched) 
 
-            stitched.show()
+                """ DEBUG:
+                """
+                draw.ellipse((img_x - 2, img_y - 2, img_x + 2, img_y + 2), fill=(128, 0, 128))
+                draw.ellipse((img_x - width / 2. - 2, img_y - height / 2. - 2, img_x - width / 2. + 2, img_y - height / 2. + 2), fill=(128, 0, 128))
+                draw.ellipse((img_x + width / 2. - 2, img_y + height / 2. - 2, img_x + width / 2. + 2, img_y + height / 2. + 2), fill=(128, 0, 128))
+                draw.ellipse((img_x - width / 2. - 2, img_y + height / 2. - 2, img_x - width / 2. + 2, img_y + height / 2. + 2), fill=(128, 0, 128))
+                draw.ellipse((img_x + width / 2. - 2, img_y - height / 2. - 2, img_x + width / 2. + 2, img_y - height / 2. + 2), fill=(128, 0, 128))
 
-            # Draw waypoints/lines:
+                stitched.show()
 
-            # Crop:
+                # Draw waypoints/lines:
 
-            raw_input()
+                # Crop:
+
+                raw_input()
 
     def crop_tiles(stitched, latitute_range, longitude_range, width, height):
         pass
@@ -144,7 +141,7 @@ def stitch_tiles(tile_1, tile_2, tile_size):
     for x in x_range:
         for y in y_range:
             tile = TileInfo(x, y, zoom)
-            tile_url = get_tile_url(tile)
+            tile_url = tile.get_tile_url()
             print x, y, tile_url
             req_result = mod_requests.get(tile_url)
             if not req_result.ok:
