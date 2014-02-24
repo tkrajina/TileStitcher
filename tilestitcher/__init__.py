@@ -2,6 +2,7 @@
 
 import pdb
 
+import logging as mod_logging
 import cStringIO as mod_stringio
 import collections as mod_collections
 import math as mod_math
@@ -100,6 +101,7 @@ class SlippyMapTilenames:
             if top < 0:
                 top_tiles = 1 + int(abs(top) / 256.)
 
+            # Tile bounds:
             tile_1 = TileInfo(int(center_tile.x) - left_tiles,  int(center_tile.y) - top_tiles, zoom)
             tile_2 = TileInfo(int(center_tile.x) + right_tiles, int(center_tile.y) + bottom_tiles, zoom)
             assert tile_1.x <= tile_2.x
@@ -107,31 +109,60 @@ class SlippyMapTilenames:
             assert tile_1.zoom == tile_2.zoom
 
             if tile_2.x - tile_1.x + 1 <= self.max_tiles and tile_2.y - tile_1.y + 1 <= self.max_tiles:
-                # TODO: Check that image window bounds are within latitude/longitude bounds!
+                center_x, center_y = self.get_position_on_stitched_image(tile_1, tile_2, center[0], center[1])
 
-                print self.get_position_on_stitched_image(tile_1, tile_2, latitute_range[0], longitude_range[0])
-                print self.get_position_on_stitched_image(tile_1, tile_2, latitute_range[1], longitude_range[1])
+                # There are now two windows on the image. One is given by 
+                # lat/lon bounds, and the other with width, height. Every 
+                # window can be represented with two points The lat/lon window 
+                # must be *inside* the width/height window:
+                latlon_window_1 = self.get_position_on_stitched_image(tile_1, tile_2, latitute_range[0], longitude_range[0])
+                latlon_window_2 = self.get_position_on_stitched_image(tile_1, tile_2, latitute_range[1], longitude_range[1])
+
+                widthheight_window_1 = (center_x - width / 2., center_y - height / 2.)
+                widthheight_window_2 = (center_x + width / 2., center_y + height / 2.)
+
+                mod_logging.debug('lat/lon bounds: ' + str(latlon_window_1))
+                mod_logging.debug('lat/lon bounds: ' + str(latlon_window_2))
+                mod_logging.debug('width/height bounds: ' + str(widthheight_window_1))
+                mod_logging.debug('width/height bounds: ' + str(widthheight_window_2))
+
+
+                latlon_inside_widthheight =     widthheight_window_1[0] <= latlon_window_1[0] <= widthheight_window_2[0] \
+                                            and widthheight_window_1[0] <= latlon_window_2[0] <= widthheight_window_2[0] \
+                                            and widthheight_window_1[1] <= latlon_window_2[1] <= widthheight_window_2[1] \
+                                            and widthheight_window_1[1] <= latlon_window_2[1] <= widthheight_window_2[1]
 
                 stitched = stitch_tiles(tile_1, tile_2, self.tile_size)
-
                 draw = mod_imagedraw.Draw(stitched) 
-                img_x, img_y = self.get_position_on_stitched_image(tile_1, tile_2, center[0], center[1])
+
+                if latlon_inside_widthheight:
+                    print 'ok'
+                else:
+                    print 'nije'
+
+                raw_input()
 
                 """ DEBUG:
                 """
-                draw.ellipse((img_x - 2, img_y - 2, img_x + 2, img_y + 2), fill=(128, 0, 128))
-                draw.ellipse((img_x - width / 2. - 2, img_y - height / 2. - 2, img_x - width / 2. + 2, img_y - height / 2. + 2), fill=(128, 0, 128))
-                draw.ellipse((img_x + width / 2. - 2, img_y + height / 2. - 2, img_x + width / 2. + 2, img_y + height / 2. + 2), fill=(128, 0, 128))
-                draw.ellipse((img_x - width / 2. - 2, img_y + height / 2. - 2, img_x - width / 2. + 2, img_y + height / 2. + 2), fill=(128, 0, 128))
-                draw.ellipse((img_x + width / 2. - 2, img_y - height / 2. - 2, img_x + width / 2. + 2, img_y - height / 2. + 2), fill=(128, 0, 128))
+                draw.ellipse((center_x - 2, center_y - 2, center_x + 2, center_y + 2), fill=(0, 0, 0))
+
+                red = (255, 0, 0)
+                draw.ellipse((widthheight_window_1[0] - 2, widthheight_window_1[1] - 2, widthheight_window_1[0] + 2, widthheight_window_1[1] + 2), fill=red)
+                draw.ellipse((widthheight_window_2[0] - 2, widthheight_window_2[1] - 2, widthheight_window_2[0] + 2, widthheight_window_2[1] + 2), fill=red)
+                draw.ellipse((widthheight_window_1[0] - 2, widthheight_window_2[1] - 2, widthheight_window_1[0] + 2, widthheight_window_2[1] + 2), fill=red)
+                draw.ellipse((widthheight_window_2[0] - 2, widthheight_window_1[1] - 2, widthheight_window_2[0] + 2, widthheight_window_1[1] + 2), fill=red)
+
+                blue = (0, 0, 255)
+                draw.ellipse((latlon_window_1[0] - 2, latlon_window_1[1] - 2, latlon_window_1[0] + 2, latlon_window_1[1] + 2), fill=blue)
+                draw.ellipse((latlon_window_2[0] - 2, latlon_window_2[1] - 2, latlon_window_2[0] + 2, latlon_window_2[1] + 2), fill=blue)
+                draw.ellipse((latlon_window_1[0] - 2, latlon_window_2[1] - 2, latlon_window_1[0] + 2, latlon_window_2[1] + 2), fill=blue)
+                draw.ellipse((latlon_window_2[0] - 2, latlon_window_1[1] - 2, latlon_window_2[0] + 2, latlon_window_1[1] + 2), fill=blue)
 
                 stitched.show()
 
                 # Draw waypoints/lines:
 
                 # Crop:
-
-                raw_input()
 
     def crop_tiles(stitched, latitute_range, longitude_range, width, height):
         pass
