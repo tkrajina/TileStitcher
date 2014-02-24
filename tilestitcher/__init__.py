@@ -36,6 +36,11 @@ class TileInfo:
 
         return 'http://tile.openstreetmap.org/%s/%s/%s.png' % (self.zoom, int(x), int(y))
 
+# All the data needed to stitch and crop an image:
+ImageInfo = mod_collections.namedtuple(
+        'ImageInfo',
+        ('tile_1', 'tile_2', 'widthheight_window_1', 'widthheight_window_2', 'latlon_window_1', 'latlon_window_2', 'center_x', 'center_y'))
+
 class SlippyMapTilenames:
     def __init__(self):
         self.min_zoom = 0
@@ -73,10 +78,7 @@ class SlippyMapTilenames:
         return self.tile_size * (tile.x - int(tile_1.x)), self.tile_size * (tile.y - int(tile_1.y))
 
     def get_best_zoom_data(self, center, latitute_range, longitude_range, width, height):
-        result_tile_1, result_tile_2 = None, None
-        result_widthheight_window_1, result_widthheight_window_2 = None, None
-        result_latlon_window_1, result_latlon_window_2 = None, None
-        result_center_x, result_center_y = None, None
+        result = None
         for zoom in range(self.min_zoom, self.max_zoom):
             # Find tile:
             center_tile = self.deg2num(center[0], center[1], zoom, leave_float=True)
@@ -129,13 +131,10 @@ class SlippyMapTilenames:
                                             and widthheight_window_1[1] <= latlon_window_2[1] <= widthheight_window_2[1]
 
                 if latlon_inside_widthheight:
-                    result_tile_1, result_tile_2 = tile_1, tile_2
-                    result_widthheight_window_1, result_widthheight_window_2 = widthheight_window_1, widthheight_window_2
-                    result_latlon_window_1, result_latlon_window_2 = latlon_window_1, latlon_window_2
-                    result_center_x, result_center_y = center_x, center_y
+                    result = ImageInfo(tile_1, tile_2, widthheight_window_1, widthheight_window_2, \
+                                       latlon_window_1, latlon_window_2, center_x, center_y)
 
-        return result_tile_1, result_tile_2, result_widthheight_window_1, result_widthheight_window_2, \
-               result_latlon_window_1, result_latlon_window_2, result_center_x, result_center_y
+        return result
 
     def get_image(self, latitute_range, longitude_range, width, height):
         assert len(latitute_range) == 2
@@ -145,37 +144,44 @@ class SlippyMapTilenames:
 
         center = ((latitute_range[0] + latitute_range[1]) / 2., (longitude_range[0] + longitude_range[1]) / 2.)
 
-        tile_1, tile_2, widthheight_window_1, widthheight_window_2, latlon_window_1, latlon_window_2, center_x, center_y = self.get_best_zoom_data(center, latitute_range, longitude_range, width, height)
+        image_info = self.get_best_zoom_data(center, latitute_range, longitude_range, width, height)
 
-        stitched = stitch_tiles(tile_1, tile_2, self.tile_size)
+        if not image_info:
+            return None
+
+        stitched = stitch_tiles(image_info.tile_1, image_info.tile_2, self.tile_size)
         draw = mod_imagedraw.Draw(stitched) 
 
-        raw_input()
-
         """ DEBUG:
-        """
-        draw.ellipse((center_x - 2, center_y - 2, center_x + 2, center_y + 2), fill=(0, 0, 0))
+        draw.ellipse((image_info.center_x - 2, image_info.center_y - 2, image_info.center_x + 2, image_info.center_y + 2), fill=(0, 0, 0))
 
         red = (255, 0, 0)
-        draw.ellipse((widthheight_window_1[0] - 2, widthheight_window_1[1] - 2, widthheight_window_1[0] + 2, widthheight_window_1[1] + 2), fill=red)
-        draw.ellipse((widthheight_window_2[0] - 2, widthheight_window_2[1] - 2, widthheight_window_2[0] + 2, widthheight_window_2[1] + 2), fill=red)
-        draw.ellipse((widthheight_window_1[0] - 2, widthheight_window_2[1] - 2, widthheight_window_1[0] + 2, widthheight_window_2[1] + 2), fill=red)
-        draw.ellipse((widthheight_window_2[0] - 2, widthheight_window_1[1] - 2, widthheight_window_2[0] + 2, widthheight_window_1[1] + 2), fill=red)
+        draw.ellipse((image_info.widthheight_window_1[0] - 2, image_info.widthheight_window_1[1] - 2, image_info.widthheight_window_1[0] + 2, image_info.widthheight_window_1[1] + 2), fill=red)
+        draw.ellipse((image_info.widthheight_window_2[0] - 2, image_info.widthheight_window_2[1] - 2, image_info.widthheight_window_2[0] + 2, image_info.widthheight_window_2[1] + 2), fill=red)
+        draw.ellipse((image_info.widthheight_window_1[0] - 2, image_info.widthheight_window_2[1] - 2, image_info.widthheight_window_1[0] + 2, image_info.widthheight_window_2[1] + 2), fill=red)
+        draw.ellipse((image_info.widthheight_window_2[0] - 2, image_info.widthheight_window_1[1] - 2, image_info.widthheight_window_2[0] + 2, image_info.widthheight_window_1[1] + 2), fill=red)
 
         blue = (0, 0, 255)
-        draw.ellipse((latlon_window_1[0] - 2, latlon_window_1[1] - 2, latlon_window_1[0] + 2, latlon_window_1[1] + 2), fill=blue)
-        draw.ellipse((latlon_window_2[0] - 2, latlon_window_2[1] - 2, latlon_window_2[0] + 2, latlon_window_2[1] + 2), fill=blue)
-        draw.ellipse((latlon_window_1[0] - 2, latlon_window_2[1] - 2, latlon_window_1[0] + 2, latlon_window_2[1] + 2), fill=blue)
-        draw.ellipse((latlon_window_2[0] - 2, latlon_window_1[1] - 2, latlon_window_2[0] + 2, latlon_window_1[1] + 2), fill=blue)
+        draw.ellipse((image_info.latlon_window_1[0] - 2, image_info.latlon_window_1[1] - 2, image_info.latlon_window_1[0] + 2, image_info.latlon_window_1[1] + 2), fill=blue)
+        draw.ellipse((image_info.latlon_window_2[0] - 2, image_info.latlon_window_2[1] - 2, image_info.latlon_window_2[0] + 2, image_info.latlon_window_2[1] + 2), fill=blue)
+        draw.ellipse((image_info.latlon_window_1[0] - 2, image_info.latlon_window_2[1] - 2, image_info.latlon_window_1[0] + 2, image_info.latlon_window_2[1] + 2), fill=blue)
+        draw.ellipse((image_info.latlon_window_2[0] - 2, image_info.latlon_window_1[1] - 2, image_info.latlon_window_2[0] + 2, image_info.latlon_window_1[1] + 2), fill=blue)
 
         stitched.show()
+        """
 
         # Draw waypoints/lines:
 
         # Crop:
+        cropped = self.crop(stitched, image_info);
 
-    def crop_tiles(stitched, latitute_range, longitude_range, width, height):
-        pass
+        cropped.show()
+
+        return cropped
+
+    def crop(self, stitched, image_info):
+        return stitched.crop((int(image_info.widthheight_window_1[0]), int(image_info.widthheight_window_1[1]), \
+                              int(image_info.widthheight_window_2[0]), int(image_info.widthheight_window_2[1])))
 
 def stitch_tiles(tile_1, tile_2, tile_size):
     assert tile_1.zoom == tile_2.zoom
