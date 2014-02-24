@@ -72,14 +72,11 @@ class SlippyMapTilenames:
         tile = self.deg2num(latitude, longitude, zoom, leave_float=True)
         return self.tile_size * (tile.x - int(tile_1.x)), self.tile_size * (tile.y - int(tile_1.y))
 
-    def get_image(self, latitute_range, longitude_range, width, height):
-        assert len(latitute_range) == 2
-        assert latitute_range[0] < latitute_range[1]
-        assert len(longitude_range) == 2
-        assert longitude_range[0] < longitude_range[1]
-
-        center = ((latitute_range[0] + latitute_range[1]) / 2., (longitude_range[0] + longitude_range[1]) / 2.)
-
+    def get_best_zoom_data(self, center, latitute_range, longitude_range, width, height):
+        result_tile_1, result_tile_2 = None, None
+        result_widthheight_window_1, result_widthheight_window_2 = None, None
+        result_latlon_window_1, result_latlon_window_2 = None, None
+        result_center_x, result_center_y = None, None
         for zoom in range(self.min_zoom, self.max_zoom):
             # Find tile:
             center_tile = self.deg2num(center[0], center[1], zoom, leave_float=True)
@@ -126,43 +123,56 @@ class SlippyMapTilenames:
                 mod_logging.debug('width/height bounds: ' + str(widthheight_window_1))
                 mod_logging.debug('width/height bounds: ' + str(widthheight_window_2))
 
-
                 latlon_inside_widthheight =     widthheight_window_1[0] <= latlon_window_1[0] <= widthheight_window_2[0] \
                                             and widthheight_window_1[0] <= latlon_window_2[0] <= widthheight_window_2[0] \
                                             and widthheight_window_1[1] <= latlon_window_2[1] <= widthheight_window_2[1] \
                                             and widthheight_window_1[1] <= latlon_window_2[1] <= widthheight_window_2[1]
 
-                stitched = stitch_tiles(tile_1, tile_2, self.tile_size)
-                draw = mod_imagedraw.Draw(stitched) 
-
                 if latlon_inside_widthheight:
-                    print 'ok'
-                else:
-                    print 'nije'
+                    result_tile_1, result_tile_2 = tile_1, tile_2
+                    result_widthheight_window_1, result_widthheight_window_2 = widthheight_window_1, widthheight_window_2
+                    result_latlon_window_1, result_latlon_window_2 = latlon_window_1, latlon_window_2
+                    result_center_x, result_center_y = center_x, center_y
 
-                raw_input()
+        return result_tile_1, result_tile_2, result_widthheight_window_1, result_widthheight_window_2, \
+               result_latlon_window_1, result_latlon_window_2, result_center_x, result_center_y
 
-                """ DEBUG:
-                """
-                draw.ellipse((center_x - 2, center_y - 2, center_x + 2, center_y + 2), fill=(0, 0, 0))
+    def get_image(self, latitute_range, longitude_range, width, height):
+        assert len(latitute_range) == 2
+        assert latitute_range[0] < latitute_range[1]
+        assert len(longitude_range) == 2
+        assert longitude_range[0] < longitude_range[1]
 
-                red = (255, 0, 0)
-                draw.ellipse((widthheight_window_1[0] - 2, widthheight_window_1[1] - 2, widthheight_window_1[0] + 2, widthheight_window_1[1] + 2), fill=red)
-                draw.ellipse((widthheight_window_2[0] - 2, widthheight_window_2[1] - 2, widthheight_window_2[0] + 2, widthheight_window_2[1] + 2), fill=red)
-                draw.ellipse((widthheight_window_1[0] - 2, widthheight_window_2[1] - 2, widthheight_window_1[0] + 2, widthheight_window_2[1] + 2), fill=red)
-                draw.ellipse((widthheight_window_2[0] - 2, widthheight_window_1[1] - 2, widthheight_window_2[0] + 2, widthheight_window_1[1] + 2), fill=red)
+        center = ((latitute_range[0] + latitute_range[1]) / 2., (longitude_range[0] + longitude_range[1]) / 2.)
 
-                blue = (0, 0, 255)
-                draw.ellipse((latlon_window_1[0] - 2, latlon_window_1[1] - 2, latlon_window_1[0] + 2, latlon_window_1[1] + 2), fill=blue)
-                draw.ellipse((latlon_window_2[0] - 2, latlon_window_2[1] - 2, latlon_window_2[0] + 2, latlon_window_2[1] + 2), fill=blue)
-                draw.ellipse((latlon_window_1[0] - 2, latlon_window_2[1] - 2, latlon_window_1[0] + 2, latlon_window_2[1] + 2), fill=blue)
-                draw.ellipse((latlon_window_2[0] - 2, latlon_window_1[1] - 2, latlon_window_2[0] + 2, latlon_window_1[1] + 2), fill=blue)
+        tile_1, tile_2, widthheight_window_1, widthheight_window_2, latlon_window_1, latlon_window_2, center_x, center_y = self.get_best_zoom_data(center, latitute_range, longitude_range, width, height)
 
-                stitched.show()
+        stitched = stitch_tiles(tile_1, tile_2, self.tile_size)
+        draw = mod_imagedraw.Draw(stitched) 
 
-                # Draw waypoints/lines:
+        raw_input()
 
-                # Crop:
+        """ DEBUG:
+        """
+        draw.ellipse((center_x - 2, center_y - 2, center_x + 2, center_y + 2), fill=(0, 0, 0))
+
+        red = (255, 0, 0)
+        draw.ellipse((widthheight_window_1[0] - 2, widthheight_window_1[1] - 2, widthheight_window_1[0] + 2, widthheight_window_1[1] + 2), fill=red)
+        draw.ellipse((widthheight_window_2[0] - 2, widthheight_window_2[1] - 2, widthheight_window_2[0] + 2, widthheight_window_2[1] + 2), fill=red)
+        draw.ellipse((widthheight_window_1[0] - 2, widthheight_window_2[1] - 2, widthheight_window_1[0] + 2, widthheight_window_2[1] + 2), fill=red)
+        draw.ellipse((widthheight_window_2[0] - 2, widthheight_window_1[1] - 2, widthheight_window_2[0] + 2, widthheight_window_1[1] + 2), fill=red)
+
+        blue = (0, 0, 255)
+        draw.ellipse((latlon_window_1[0] - 2, latlon_window_1[1] - 2, latlon_window_1[0] + 2, latlon_window_1[1] + 2), fill=blue)
+        draw.ellipse((latlon_window_2[0] - 2, latlon_window_2[1] - 2, latlon_window_2[0] + 2, latlon_window_2[1] + 2), fill=blue)
+        draw.ellipse((latlon_window_1[0] - 2, latlon_window_2[1] - 2, latlon_window_1[0] + 2, latlon_window_2[1] + 2), fill=blue)
+        draw.ellipse((latlon_window_2[0] - 2, latlon_window_1[1] - 2, latlon_window_2[0] + 2, latlon_window_1[1] + 2), fill=blue)
+
+        stitched.show()
+
+        # Draw waypoints/lines:
+
+        # Crop:
 
     def crop_tiles(stitched, latitute_range, longitude_range, width, height):
         pass
