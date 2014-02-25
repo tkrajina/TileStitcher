@@ -136,7 +136,7 @@ class SlippyMapTilenames:
 
         return result
 
-    def get_image(self, latitute_range, longitude_range, width, height):
+    def get_image(self, latitute_range, longitude_range, width, height, polyline=None, line_color=None, line_width=None):
         assert len(latitute_range) == 2
         assert latitute_range[0] < latitute_range[1]
         assert len(longitude_range) == 2
@@ -150,9 +150,9 @@ class SlippyMapTilenames:
             return None
 
         stitched = stitch_tiles(image_info.tile_1, image_info.tile_2, self.tile_size)
-        draw = mod_imagedraw.Draw(stitched) 
 
         """ DEBUG:
+        draw = mod_imagedraw.Draw(stitched) 
         draw.ellipse((image_info.center_x - 2, image_info.center_y - 2, image_info.center_x + 2, image_info.center_y + 2), fill=(0, 0, 0))
 
         red = (255, 0, 0)
@@ -171,6 +171,8 @@ class SlippyMapTilenames:
         """
 
         # Draw waypoints/lines:
+        if polyline:
+            self.draw_line(stitched, image_info, polyline, width=line_width, color=line_color)
 
         # Crop:
         cropped = self.crop(stitched, image_info);
@@ -178,6 +180,17 @@ class SlippyMapTilenames:
         cropped.show()
 
         return cropped
+
+    def draw_line(self, stitched, image_info, polyline, width=None, color=None):
+        width = width or 2
+        color = (255, 0, 0) or color
+        draw = mod_imagedraw.Draw(stitched) 
+        for point_no in range(1, len(polyline)):
+            point_1 = polyline[point_no - 1]
+            point_2 = polyline[point_no]
+            x1, y1 = self.get_position_on_stitched_image(image_info.tile_1, image_info.tile_2, point_1.latitude, point_1.longitude)
+            x2, y2 = self.get_position_on_stitched_image(image_info.tile_1, image_info.tile_2, point_2.latitude, point_2.longitude)
+            draw.line((x1, y1, x2, y2), fill=color, width=width)
 
     def crop(self, stitched, image_info):
         return stitched.crop((int(image_info.widthheight_window_1[0]), int(image_info.widthheight_window_1[1]), \
