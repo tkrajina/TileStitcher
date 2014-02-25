@@ -11,7 +11,6 @@ import Image as mod_image
 import ImageDraw as mod_imagedraw
 
 class TileInfo:
-
     def __init__(self, x, y, zoom):
         self.x = x
         self.y = y
@@ -41,15 +40,15 @@ ImageInfo = mod_collections.namedtuple(
         'ImageInfo',
         ('tile_1', 'tile_2', 'widthheight_window_1', 'widthheight_window_2', 'latlon_window_1', 'latlon_window_2', 'center_x', 'center_y'))
 
-class SlippyMapTilenames:
-    def __init__(self):
+class SlippyMapTiles:
+    def __init__(self, max_tiles=None):
         self.min_zoom = 0
         self.max_zoom = 19
         self.tile_size = 256
         # max tiles to stitch
-        self.max_tiles = 2
+        self.max_tiles = max_tiles or 2
 
-    def deg2num(self, lat_deg, lon_deg, zoom, leave_float=False):
+    def _deg2num(self, lat_deg, lon_deg, zoom, leave_float=False):
         """ Taken from http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Python """
         lat_rad = mod_math.radians(lat_deg)
         n = 2.0 ** zoom
@@ -60,7 +59,7 @@ class SlippyMapTilenames:
             ytile = int(ytile)
         return TileInfo(xtile, ytile, zoom)
 
-    def num2deg(self, tile):
+    def _num2deg(self, tile):
         """ Taken from http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Python """
         n = 2.0 ** tile.zoom
         lon_deg = tile.x / n * 360.0 - 180.0
@@ -68,20 +67,20 @@ class SlippyMapTilenames:
         lat_deg = mod_math.degrees(lat_rad)
         return (lat_deg, lon_deg)
 
-    def get_position_on_stitched_image(self, tile_1, tile_2, latitude, longitude):
+    def _get_position_on_stitched_image(self, tile_1, tile_2, latitude, longitude):
         assert tile_1.x <= tile_2.x
         assert tile_1.y <= tile_2.y
         assert tile_1.zoom == tile_2.zoom
         
         zoom = tile_1.zoom
-        tile = self.deg2num(latitude, longitude, zoom, leave_float=True)
+        tile = self._deg2num(latitude, longitude, zoom, leave_float=True)
         return self.tile_size * (tile.x - int(tile_1.x)), self.tile_size * (tile.y - int(tile_1.y))
 
-    def get_best_zoom_data(self, center, latitute_range, longitude_range, width, height):
+    def _get_best_zoom_data(self, center, latitute_range, longitude_range, width, height):
         result = None
         for zoom in range(self.min_zoom, self.max_zoom):
             # Find tile:
-            center_tile = self.deg2num(center[0], center[1], zoom, leave_float=True)
+            center_tile = self._deg2num(center[0], center[1], zoom, leave_float=True)
             location_on_image = (self.tile_size * (center_tile.x - int(center_tile.x)), self.tile_size * (center_tile.y - int(center_tile.y)))
 
             # Check how many tiles left/right/bottop/up are needed:
@@ -108,14 +107,14 @@ class SlippyMapTilenames:
             assert tile_1.zoom == tile_2.zoom
 
             if tile_2.x - tile_1.x + 1 <= self.max_tiles and tile_2.y - tile_1.y + 1 <= self.max_tiles:
-                center_x, center_y = self.get_position_on_stitched_image(tile_1, tile_2, center[0], center[1])
+                center_x, center_y = self._get_position_on_stitched_image(tile_1, tile_2, center[0], center[1])
 
                 # There are now two windows on the image. One is given by 
                 # lat/lon bounds, and the other with width, height. Every 
                 # window can be represented with two points The lat/lon window 
                 # must be *inside* the width/height window:
-                latlon_window_1 = self.get_position_on_stitched_image(tile_1, tile_2, latitute_range[0], longitude_range[0])
-                latlon_window_2 = self.get_position_on_stitched_image(tile_1, tile_2, latitute_range[1], longitude_range[1])
+                latlon_window_1 = self._get_position_on_stitched_image(tile_1, tile_2, latitute_range[0], longitude_range[0])
+                latlon_window_2 = self._get_position_on_stitched_image(tile_1, tile_2, latitute_range[1], longitude_range[1])
 
                 widthheight_window_1 = (center_x - width / 2., center_y - height / 2.)
                 widthheight_window_2 = (center_x + width / 2., center_y + height / 2.)
@@ -136,7 +135,7 @@ class SlippyMapTilenames:
 
         return result
 
-    def get_image(self, latitute_range, longitude_range, width, height, polyline=None, line_color=None, line_width=None):
+    def get_image(self, latitute_range, longitude_range, width, height, polyline=None, polyline_color=None, polyline_width=None):
         assert len(latitute_range) == 2
         assert latitute_range[0] < latitute_range[1]
         assert len(longitude_range) == 2
@@ -144,12 +143,12 @@ class SlippyMapTilenames:
 
         center = ((latitute_range[0] + latitute_range[1]) / 2., (longitude_range[0] + longitude_range[1]) / 2.)
 
-        image_info = self.get_best_zoom_data(center, latitute_range, longitude_range, width, height)
+        image_info = self._get_best_zoom_data(center, latitute_range, longitude_range, width, height)
 
         if not image_info:
             return None
 
-        stitched = stitch_tiles(image_info.tile_1, image_info.tile_2, self.tile_size)
+        stitched = self._stitch_tiles(image_info.tile_1, image_info.tile_2, self.tile_size)
 
         """ DEBUG:
         draw = mod_imagedraw.Draw(stitched) 
@@ -172,58 +171,53 @@ class SlippyMapTilenames:
 
         # Draw waypoints/lines:
         if polyline:
-            self.draw_line(stitched, image_info, polyline, width=line_width, color=line_color)
+            self._draw_line(stitched, image_info, polyline, width=polyline_width, color=polyline_color)
 
         # Crop:
-        cropped = self.crop(stitched, image_info);
-
-        cropped.show()
+        cropped = self._crop(stitched, image_info);
 
         return cropped
 
-    def draw_line(self, stitched, image_info, polyline, width=None, color=None):
+    def _draw_line(self, stitched, image_info, polyline, width=None, color=None):
         width = width or 2
         color = (255, 0, 0) or color
         draw = mod_imagedraw.Draw(stitched) 
         for point_no in range(1, len(polyline)):
             point_1 = polyline[point_no - 1]
             point_2 = polyline[point_no]
-            x1, y1 = self.get_position_on_stitched_image(image_info.tile_1, image_info.tile_2, point_1.latitude, point_1.longitude)
-            x2, y2 = self.get_position_on_stitched_image(image_info.tile_1, image_info.tile_2, point_2.latitude, point_2.longitude)
+            x1, y1 = self._get_position_on_stitched_image(image_info.tile_1, image_info.tile_2, point_1.latitude, point_1.longitude)
+            x2, y2 = self._get_position_on_stitched_image(image_info.tile_1, image_info.tile_2, point_2.latitude, point_2.longitude)
             draw.line((x1, y1, x2, y2), fill=color, width=width)
 
-    def crop(self, stitched, image_info):
+    def _crop(self, stitched, image_info):
         return stitched.crop((int(image_info.widthheight_window_1[0]), int(image_info.widthheight_window_1[1]), \
                               int(image_info.widthheight_window_2[0]), int(image_info.widthheight_window_2[1])))
 
-def stitch_tiles(tile_1, tile_2, tile_size):
-    assert tile_1.zoom == tile_2.zoom
-    zoom = tile_1.zoom
-    x_range = range(min(tile_1.x, tile_2.x), max(tile_1.x, tile_2.x) + 1)
-    y_range = range(min(tile_1.y, tile_2.y), max(tile_1.y, tile_2.y) + 1)
+    def _stitch_tiles(self, tile_1, tile_2, tile_size):
+        assert tile_1.zoom == tile_2.zoom
+        zoom = tile_1.zoom
+        x_range = range(min(tile_1.x, tile_2.x), max(tile_1.x, tile_2.x) + 1)
+        y_range = range(min(tile_1.y, tile_2.y), max(tile_1.y, tile_2.y) + 1)
 
-    horizontal_tiles = abs(tile_1.x - tile_2.x) + 1
-    vertical_tiles = abs(tile_1.y - tile_2.y) + 1
+        horizontal_tiles = abs(tile_1.x - tile_2.x) + 1
+        vertical_tiles = abs(tile_1.y - tile_2.y) + 1
 
-    result = mod_image.new('RGB', (horizontal_tiles * tile_size, vertical_tiles * tile_size))
+        result = mod_image.new('RGB', (horizontal_tiles * tile_size, vertical_tiles * tile_size))
 
-    for x in x_range:
-        for y in y_range:
-            tile = TileInfo(x, y, zoom)
-            tile_url = tile.get_tile_url()
-            print x, y, tile_url
-            req_result = mod_requests.get(tile_url)
-            if not req_result.ok:
-                raise Exception('Error retrieving %s' % tile_url)
-            """
-            f = open(tile_url.replace('http://', '').replace('/', '_'), 'w')
-            f.write(req_result.content)
-            """
-            tile_image = mod_image.open(mod_stringio.StringIO(req_result.content))
-            result.paste(tile_image, (tile_size * (x - x_range[0]), tile_size * (y - y_range[0])))
-            #print 'ok'
+        for x in x_range:
+            for y in y_range:
+                tile = TileInfo(x, y, zoom)
+                tile_url = tile.get_tile_url()
+                print x, y, tile_url
+                req_result = mod_requests.get(tile_url)
+                if not req_result.ok:
+                    raise Exception('Error retrieving %s' % tile_url)
+                """
+                f = open(tile_url.replace('http://', '').replace('/', '_'), 'w')
+                f.write(req_result.content)
+                """
+                tile_image = mod_image.open(mod_stringio.StringIO(req_result.content))
+                result.paste(tile_image, (tile_size * (x - x_range[0]), tile_size * (y - y_range[0])))
+                #print 'ok'
 
-    return result
-
-def crop_stitched_tiles(image, latitute_range, longitude_range):
-    pass
+        return result
