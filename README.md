@@ -29,6 +29,6 @@ If you plan not to use the best zoom, but the second best zoom (one level smalle
 
 ## License
 
-GPX.py is licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+TileStitcher is licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
 Check the [OSM tile usage policy](http://www.openstreetmap.org). Most importantly display the license distribution and *do not* use this library for bulk downloading!
