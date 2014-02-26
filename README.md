@@ -25,7 +25,6 @@ If you plan not to use the best zoom, but the second best zoom (one level smalle
 ## TODO
 
  * Waypoints
- * Attribution
 
 ## License
 
