@@ -221,7 +221,7 @@ class SlippyMapTiles:
 
     def _draw_line(self, stitched, image_info, polyline, width=None, color=None):
         width = width or 2
-        color = (255, 0, 0) or color
+        color = color or (255, 0, 0)
         draw = mod_imagedraw.Draw(stitched) 
         for point_no in range(1, len(polyline)):
             point_1 = polyline[point_no - 1]
