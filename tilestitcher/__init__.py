@@ -55,12 +55,16 @@ ImageInfo = mod_collections.namedtuple(
         ('tile_1', 'tile_2', 'widthheight_window_1', 'widthheight_window_2', 'latlon_window_1', 'latlon_window_2', 'center_x', 'center_y'))
 
 class SlippyMapTiles:
-    def __init__(self, max_tiles=None):
+    def __init__(self, max_tiles=None, nth_best_zoom=None):
         self.min_zoom = 0
         self.max_zoom = 19
         self.tile_size = 256
+
         # max tiles to stitch
         self.max_tiles = max_tiles or 2
+
+        # When computing the best zoom 0 means the best one, 1 the the second best...
+        self.nth_best_zoom = nth_best_zoom or 0
 
     def _deg2num(self, lat_deg, lon_deg, zoom, leave_float=False):
         """ Taken from http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Python """
@@ -91,7 +95,7 @@ class SlippyMapTiles:
         return self.tile_size * (tile.x - int(tile_1.x)), self.tile_size * (tile.y - int(tile_1.y))
 
     def _get_best_zoom_data(self, center, latitute_range, longitude_range, width, height):
-        result = None
+        candidates = []
         for zoom in range(self.min_zoom, self.max_zoom):
             # Find tile:
             center_tile = self._deg2num(center[0], center[1], zoom, leave_float=True)
@@ -144,9 +148,19 @@ class SlippyMapTiles:
                                             and widthheight_window_1[1] <= latlon_window_2[1] <= widthheight_window_2[1]
 
                 if latlon_inside_widthheight:
-                    result = ImageInfo(tile_1, tile_2, widthheight_window_1, widthheight_window_2, \
-                                       latlon_window_1, latlon_window_2, center_x, center_y)
+                    candidates.append(ImageInfo(tile_1, tile_2, widthheight_window_1, widthheight_window_2, \
+                                       latlon_window_1, latlon_window_2, center_x, center_y))
 
+        if not candidates:
+            return None
+
+        candidates.reverse()
+
+        n = self.nth_best_zoom
+        if n >= len(candidates):
+            n = -1
+
+        result = candidates[n]
         mod_logging.debug('zoom=%s' % result.tile_1.zoom)
         return result
 

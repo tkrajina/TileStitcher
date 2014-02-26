@@ -14,9 +14,13 @@ The library will try to find the needed tiles and the best zoom, stitch them and
 
 The resulting image is a [PIL](http://pythonware.com/products/pil/) Image object.
 
-Note that bigger images will need more tiles. By default the library is limited to stitch 2 tiles horizontally and 2 vertically. If you need more (but keep in mind the OSM tile usage policy):
+Note that bigger images will need more tiles. By default the library is limited to stitch 2 tiles horizontally and 2 vertically. If you need more (but keep in mind the OSM tile usage policy!):
 
     slipy_map = mod_tilestitcher.SlippyMapTiles(max_tiles=3)
+
+If you plan not to use the best zoom, but the second best zoom (one level smaller):
+
+    slipy_map = mod_tilestitcher.SlippyMapTiles(nth_best_zoom=1)
 
 ## TODO
 
