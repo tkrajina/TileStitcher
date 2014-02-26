@@ -23,6 +23,7 @@ import math as mod_math
 import requests as mod_requests
 import Image as mod_image
 import ImageDraw as mod_imagedraw
+import ImageFont as mod_imagefont
 
 class TileInfo:
     def __init__(self, x, y, zoom):
@@ -164,7 +165,8 @@ class SlippyMapTiles:
         mod_logging.debug('zoom=%s' % result.tile_1.zoom)
         return result
 
-    def get_image(self, latitute_range, longitude_range, width, height, polyline=None, polyline_color=None, polyline_width=None):
+    def get_image(self, latitute_range, longitude_range, width, height, polyline=None, polyline_color=None, \
+                  polyline_width=None, attribution=None):
         assert len(latitute_range) == 2
         assert latitute_range[0] < latitute_range[1]
         assert len(longitude_range) == 2
@@ -205,7 +207,17 @@ class SlippyMapTiles:
         # Crop:
         cropped = self._crop(stitched, image_info);
 
+        attribution = attribution if attribution != None else '(c) OSM contributors'
+        self._draw_attribution(cropped, attribution, width, height)
+
         return cropped
+
+    def _draw_attribution(self, image, attribution, width, height):
+        font = mod_imagefont.load_default()
+        label_width, label_height = font.getsize(attribution)
+        draw = mod_imagedraw.Draw(image) 
+        color = (255, 160, 0)
+        draw.text((width - label_width, height - label_height), attribution, color, font)
 
     def _draw_line(self, stitched, image_info, polyline, width=None, color=None):
         width = width or 2
