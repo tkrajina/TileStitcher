@@ -147,6 +147,7 @@ class SlippyMapTiles:
                     result = ImageInfo(tile_1, tile_2, widthheight_window_1, widthheight_window_2, \
                                        latlon_window_1, latlon_window_2, center_x, center_y)
 
+        mod_logging.debug('zoom=%s' % result.tile_1.zoom)
         return result
 
     def get_image(self, latitute_range, longitude_range, width, height, polyline=None, polyline_color=None, polyline_width=None):
@@ -222,7 +223,7 @@ class SlippyMapTiles:
             for y in y_range:
                 tile = TileInfo(x, y, zoom)
                 tile_url = tile.get_tile_url()
-                print x, y, tile_url
+                mod_logging.debug('Downloading %s' % tile_url)
                 req_result = mod_requests.get(tile_url)
                 if not req_result.ok:
                     raise Exception('Error retrieving %s' % tile_url)
