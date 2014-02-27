@@ -166,7 +166,7 @@ class SlippyMapTiles:
         return result
 
     def get_image(self, latitute_range, longitude_range, width, height, polyline=None, polyline_color=None, \
-                  polyline_width=None, attribution=None):
+                  polyline_width=None, attribution=None, dots=None):
         assert len(latitute_range) == 2
         assert latitute_range[0] < latitute_range[1]
         assert len(longitude_range) == 2
@@ -202,7 +202,8 @@ class SlippyMapTiles:
 
         # Draw waypoints/lines:
         if polyline:
-            self._draw_line(stitched, image_info, polyline, width=polyline_width, color=polyline_color)
+            self._draw_line(stitched, image_info, polyline, width=polyline_width, \
+                    color=polyline_color, dots=dots)
 
         # Crop:
         cropped = self._crop(stitched, image_info);
@@ -219,16 +220,21 @@ class SlippyMapTiles:
         color = (255, 160, 0)
         draw.text((width - label_width, height - label_height), attribution, color, font)
 
-    def _draw_line(self, stitched, image_info, polyline, width=None, color=None):
+    def _draw_line(self, stitched, image_info, polyline, width=None, color=None, dots=None):
         width = width or 2
         color = color or (255, 0, 0)
         draw = mod_imagedraw.Draw(stitched) 
-        for point_no in range(1, len(polyline)):
-            point_1 = polyline[point_no - 1]
-            point_2 = polyline[point_no]
-            x1, y1 = self._get_position_on_stitched_image(image_info.tile_1, image_info.tile_2, point_1.latitude, point_1.longitude)
-            x2, y2 = self._get_position_on_stitched_image(image_info.tile_1, image_info.tile_2, point_2.latitude, point_2.longitude)
-            draw.line((x1, y1, x2, y2), fill=color, width=width)
+        if dots:
+            for point in polyline:
+                x, y = self._get_position_on_stitched_image(image_info.tile_1, image_info.tile_2, point[0], point[1])
+                draw.point((x, y), color)
+        else:
+            for point_no in range(1, len(polyline)):
+                point_1 = polyline[point_no - 1]
+                point_2 = polyline[point_no]
+                x1, y1 = self._get_position_on_stitched_image(image_info.tile_1, image_info.tile_2, point_1[0], point_1[1])
+                x2, y2 = self._get_position_on_stitched_image(image_info.tile_1, image_info.tile_2, point_2[0], point_2[1])
+                draw.line((x1, y1, x2, y2), fill=color, width=width)
 
     def _crop(self, stitched, image_info):
         return stitched.crop((int(image_info.widthheight_window_1[0]), int(image_info.widthheight_window_1[1]), \

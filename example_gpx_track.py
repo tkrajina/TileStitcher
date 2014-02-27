@@ -13,7 +13,7 @@ gpx.reduce_points(100)
 
 points = []
 for point in gpx.walk(only_points=True):
-    points.append(point)
+    points.append((point.latitude, point.longitude,))
 
 lat_1, lat_2, lon_1, lon_2 = gpx.get_bounds()
 slipy_map = mod_tilestitcher.SlippyMapTiles(nth_best_zoom=0)
